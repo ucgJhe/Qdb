@@ -3,7 +3,7 @@ import cmd
 from qiling import *
 from qiling.const import *
 from functools import partial
-from .frontend import context_printer, context_reg, context_asm
+from .frontend import context_printer, context_reg, context_asm, examine_mem
 from .utils import parse_int, handle_bnj
 
 
@@ -20,7 +20,7 @@ class Qldbg(cmd.Cmd):
                 "output": "default",
                 }
 
-        self.ql = None
+        self._ql = None
         self.prompt = "(Qdb) "
         self.breakpoints = {}
 
@@ -39,12 +39,12 @@ class Qldbg(cmd.Cmd):
 
     def _get_new_ql(self):
         """
-        build a new qiling instance for self.ql
+        build a new qiling instance for self._ql
         """
-        if self.ql is not None:
-            del self.ql
+        if self._ql is not None:
+            del self._ql
 
-        self.ql = Qiling(**self.ql_config)
+        self._ql = Qiling(**self.ql_config)
 
     def del_breakpoint(self, address):
         """
@@ -60,14 +60,14 @@ class Qldbg(cmd.Cmd):
         """
         _bp_func = partial(self._breakpoint_handler, _is_temp=_is_temp)
 
-        if self.ql is None:
+        if self._ql is None:
             self._get_new_ql()
 
-        _hook = self.ql.hook_address(_bp_func, address)
+        _hook = self._ql.hook_address(_bp_func, address)
         self.breakpoints.update({address: {"hook": _hook, "hitted": False, "temp": _is_temp}})
 
         if _is_temp == False:
-            self.ql.nprint("Breakpoint at 0x%08x" % address)
+            self._ql.nprint("Breakpoint at 0x%08x" % address)
 
     def _breakpoint_handler(self, ql, _is_temp=False):
         """
@@ -81,33 +81,33 @@ class Qldbg(cmd.Cmd):
             if self.breakpoints.get(_cur_addr)["hitted"]:
                 return
 
-            self.ql.nprint("hit breakpoint at 0x%08x" % _cur_addr)
+            self._ql.nprint("hit breakpoint at 0x%08x" % _cur_addr)
             self.breakpoints.get(_cur_addr)["hitted"] = True
 
         self.do_context()
-        self.ql.emu_stop()
+        self._ql.emu_stop()
 
     def run(self, address=None):
         """
         handle qiling instance launching
         """
         if not address:
-            address = self.ql.loader.entry_point
+            address = self._ql.loader.entry_point
 
-        self.ql.emu_start(address, 0)
+        self._ql.emu_start(address, 0)
 
     def do_context(self, *args):
         """
         show context information for current location
         """
-        context_reg(self.ql)
-        context_asm(self.ql, self.ql.reg.arch_pc, 4)
+        context_reg(self._ql)
+        context_asm(self._ql, self._ql.reg.arch_pc, 4)
 
     def do_run(self, *args):
         """
         launch qiling instance
         """
-        if self.ql is None:
+        if self._ql is None:
             self._get_new_ql()
 
         self.run()
@@ -116,21 +116,21 @@ class Qldbg(cmd.Cmd):
         """
         show some runtime informations
         """
-        self.ql.mem.show_mapinfo()
+        self._ql.mem.show_mapinfo()
         print("Qdb:", [(hex(idx), val) for idx, val in self.breakpoints.items()])
-        print("internal:", [(hex(idx), val) for idx, val in self.ql._addr_hook.items()])
+        print("internal:", [(hex(idx), val) for idx, val in self._ql._addr_hook.items()])
 
     def do_step(self, *args):
         """
         execute one instruction at a time
         """
 
-        if self.ql is None:
+        if self._ql is None:
             print("The program is not being run.")
 
         else:
-            _cur_addr = self.ql.reg.arch_pc
-            next_stop = handle_bnj(self.ql, _cur_addr)
+            _cur_addr = self._ql.reg.arch_pc
+            next_stop = handle_bnj(self._ql, _cur_addr)
 
             # whether bp placed already
             if self.breakpoints.get(next_stop, None):
@@ -147,7 +147,7 @@ class Qldbg(cmd.Cmd):
         pause at entry point by setting a temporary breakpoint on it
         """
         self._get_new_ql()
-        _elf_entry = self.ql.loader.elf_entry   # .text of binary
+        _elf_entry = self._ql.loader.elf_entry   # .text of binary
         self.set_breakpoint(_elf_entry, _is_temp=True)
         self.run()
 
@@ -163,26 +163,38 @@ class Qldbg(cmd.Cmd):
         """
         continue execution till next breakpoint or the end
         """
-        if self.ql is not None:
-            _cur_addr = self.ql.reg.arch_pc
-            self.ql.nprint("continued from 0x%08x" % _cur_addr)
+        if self._ql is not None:
+            _cur_addr = self._ql.reg.arch_pc
+            self._ql.nprint("continued from 0x%08x" % _cur_addr)
             self.run(_cur_addr)
 
-    def do_examine(self, xaddr=None, size=4):
+    def do_examine(self, args):
         """
-        examine data of address in qiling memory
+        read data from memory of qiling instance
         """
-        if xaddr:
-            _xaddr = parse_int(xaddr)
-            self.ql.nprint("0x%08x:\t0x%08x" % (_xaddr, self.ql.unpack(self.ql.mem.read(_xaddr, size))))
+
+        _args = args.split()
+
+        if len(_args) == 1:
+            _xaddr = parse_int(_args[0])
+            _count = 1
+
+        elif len(_args) == 2:
+            _xaddr, _count = _args
+            _xaddr = parse_int(_xaddr)
+            _count = parse_int(_count)
+
         else:
-            self.ql.nprint("need address to examine")
+            self._ql.nprint("wrong format\nUsage: x ADDRESS [SIZE]")
+            return
+
+        examine_mem(self._ql, _xaddr, _count)
 
     def do_disassemble(self, address):
         """
         disassemble instructions from address specified
         """
-        context_asm(self.ql, parse_int(address), 4)
+        context_asm(self._ql, parse_int(address), 4)
 
     def do_shell(self, *command):
         """
