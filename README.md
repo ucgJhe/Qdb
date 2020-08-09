@@ -48,6 +48,8 @@ Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
 
 ### 4. dynamic memory examination
 
+- use command `examine` or `x` to read data from memory
+
 ![](pics/mem_examination.png?raw=true)
 
 ## Supported architecture for now
