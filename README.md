@@ -36,17 +36,19 @@ Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
 
 ### 2. step-by-step execution
 
-### 3. breakpoints everywhere
+- use command `step` or `s` to execute one instruction at a time
 
-#### set breakpoint before run
+![](pics/step.png?raw=true)
 
+### 3. breakpoints
 
+- use command `breakpoint` or `b` to setup a breakpoint, and continue process with `continue` or `c`
 
-#### set breakpoint on-the-fly
+![](pics/breakpoint.png?raw=true)
 
 ### 4. dynamic memory examination
 
-
+![](pics/mem_examination.png?raw=true)
 
 ## Supported architecture for now
 
