@@ -18,8 +18,10 @@ and make binary in src directory `cd src; make`
 
 `python3 example.py`
 
+### P.S. tested on Ubuntu 18.04 only
+
 ## Supported architecture for now
 
 - [x] MIPS 
-- [] ARM
-- [] x86/x86-64
+- [ ] ARM
+- [ ] x86/x86-64
