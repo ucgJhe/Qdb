@@ -20,7 +20,6 @@ and make binary in src directory `cd src; make`
 
 ## Usage
 
-
 ```python
 # simple setup
 from qdb import Qdb

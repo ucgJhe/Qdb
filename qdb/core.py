@@ -202,7 +202,7 @@ class Qldbg(cmd.Cmd):
         """
         print(eval(*command))
 
-    def do_quit(self):
+    def do_quit(self, *args):
         """
         exit Qdb
         """
