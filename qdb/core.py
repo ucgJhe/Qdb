@@ -23,6 +23,7 @@ class Qldbg(cmd.Cmd):
         self._ql = None
         self.prompt = "(Qdb) "
         self.breakpoints = {}
+        self._saved_states = None
 
         super().__init__()
 
@@ -100,7 +101,7 @@ class Qldbg(cmd.Cmd):
         """
         show context information for current location
         """
-        context_reg(self._ql)
+        context_reg(self._ql, self._saved_states)
         context_asm(self._ql, self._ql.reg.arch_pc, 4)
 
     def do_run(self, *args):
@@ -129,6 +130,7 @@ class Qldbg(cmd.Cmd):
             print("The program is not being run.")
 
         else:
+            self._saved_states = dict(filter(lambda d: isinstance(d[0], str), self._ql.reg.save().items()))
             _cur_addr = self._ql.reg.arch_pc
             next_stop = handle_bnj(self._ql, _cur_addr)
 
