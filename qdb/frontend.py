@@ -1,7 +1,7 @@
 import os, math
 from contextlib import contextmanager
 
-from .utils import dump_stack, dump_regs
+from .utils import dump_regs
 
 
 
@@ -53,7 +53,19 @@ def context_reg(ql, *args, **kwargs):
 
     # context render for Stack
     with context_printer(ql, "[Stack]", ruler="-"):
-        dump_stack(ql)
+
+        for idx in range(8):
+            _addr = ql.reg.arch_sp + idx * 4
+            _val = ql.mem.read(_addr, ql.archbit // 8)
+            print("$sp+0x%02x|[0x%08x]=> 0x%08x" % (idx*4, _addr, ql.unpack(_val)), end="")
+
+            try: # try to deference wether its a pointer
+                _deref = ql.mem.read(_addr, 4)
+            except:
+                _deref = None
+
+            if _deref:
+                print(" => 0x%08x" % ql.unpack(_deref))
 
 
 def print_asm(ql, instructions):

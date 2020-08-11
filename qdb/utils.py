@@ -88,22 +88,6 @@ def dump_regs(ql, *args, **kwargs):
         # print(color.GREEN, "cpsr: 0x%08x \t c1_c0_2: 0x%08x \t c13_c0_3: 0x%08x \t fpexc: 0x%08x" % (ql.reg.cpsr, ql.reg.c1_c0_2, ql.reg.c13_c0_3, ql.reg.fpexc), color.END, sep="")
 
 
-def dump_stack(ql, *args, **kwargs):
-
-    for idx in range(8):
-        _addr = ql.reg.arch_sp + idx * 4
-        _val = ql.mem.read(_addr, ql.archbit // 8)
-        print("$sp+0x%02x|[0x%08x]=> 0x%08x" % (idx*4, _addr, ql.unpack(_val)), end="")
-
-        try: # try to deference wether its a pointer
-            _deref = ql.mem.read(_addr, 4)
-        except:
-            _deref = None
-
-        if _deref:
-            print(" => 0x%08x" % ql.unpack(_deref))
-
-
 # parse unsigned integer from string 
 def parse_int(s):
     return int(s, 16) if s.startswith("0x") else int(s)
