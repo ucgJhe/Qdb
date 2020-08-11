@@ -1,4 +1,4 @@
-import os, math
+import os, math, copy
 from contextlib import contextmanager
 
 from .utils import dump_regs
@@ -72,7 +72,7 @@ def context_reg(ql, saved_states, *args, **kwargs):
         _colors = (color.DARKCYAN, color.BLUE, color.RED, color.YELLOW, color.GREEN, color.PURPLE, color.CYAN, color.WHITE)
 
         if saved_states is not None:
-            _saved_states = saved_states
+            _saved_states = copy.deepcopy(saved_states)
             _saved_states.update({"fp": _saved_states.pop("s8")})
             _diff = [k for k in _cur_regs if _cur_regs[k] != _saved_states[k]]
 
