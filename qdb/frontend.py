@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import math, copy
+import math, copy, os
 from contextlib import contextmanager
 
 from qiling.const import QL_ARCH
