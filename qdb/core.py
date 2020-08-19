@@ -7,7 +7,7 @@ from qiling import *
 from qiling.const import *
 
 from .frontend import context_printer, context_reg, context_asm, examine_mem
-from .utils import parse_int, handle_bnj, is_thumb, PROGRAM_EXITED
+from .utils import parse_int, handle_bnj, is_thumb, CODE_END 
 
 
 
@@ -135,7 +135,7 @@ class Qldbg(cmd.Cmd):
 
             next_stop = handle_bnj(self._ql, _cur_addr)
 
-            if next_stop == PROGRAM_EXITED:
+            if next_stop is CODE_END:
                 return True
 
             # whether bp placed already
