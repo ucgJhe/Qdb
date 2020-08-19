@@ -16,9 +16,7 @@ make sure you install `mipsel-linux-gnu-gcc` or `arm-linux-gnueabihf`
 
 and make binary in src directory `cd src; make`
 
-##### just uncomment the one you want to test in example.py and run it with ####
-
-`python3 example.py`
+just uncomment the one you want to test in example.py and run it with `python3 example.py`
 
 ## Usage
 
