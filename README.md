@@ -53,8 +53,10 @@ Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
 
 ## Supported architecture for now
 
-- [x] MIPS 
-- [ ] ARM
+- [x] MIPS32
+- [ ] MIPS64
+- [x] ARM/THUMB
+- [ ] ARM64
 - [ ] x86/x86-64
 
 ### P.S. tested on Ubuntu 18.04 only
