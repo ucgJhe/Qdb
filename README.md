@@ -12,7 +12,7 @@ A multi-architecture and cross-platform debugger baked by [Qiling Framework](htt
 
 ## How to run example.py
 
-make sure you install `mipsel-linux-gnu-gcc`
+make sure you install `mipsel-linux-gnu-gcc` or `arm-linux-gnueabihf`
 
 and make binary in src directory `cd src; make`
 
@@ -24,7 +24,12 @@ and make binary in src directory `cd src; make`
 # simple setup
 from qdb import Qdb
 
-Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
+
+# just uncomment the one you want to test
+
+# Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
+# Qdb(["src/arm32el_hello"]), "/usr/arm-linux-gnueabihf").interactive()
+
 ```
 
 ### 1. commandline-based user interface
