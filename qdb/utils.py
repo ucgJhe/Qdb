@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from qiling.const import *
-
 from functools import partial
+
+from qiling.const import *
 
 PROGRAM_EXITED = "DONE"
 
@@ -138,7 +138,7 @@ def handle_bnj_arm(ql, cur_addr):
     ret_addr = cur_addr + line.size
 
     if line.mnemonic == "udf": # indicates program exited
-        return PROGRAM_EXITED
+        return PROGRAM_EXTIED
 
     jump_table = {
             # unconditional branch

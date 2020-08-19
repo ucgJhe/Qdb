@@ -91,6 +91,13 @@ class Qldbg(cmd.Cmd):
         self.do_context()
         self._ql.emu_stop()
 
+    def do_context(self, *args):
+        """
+        show context information for current location
+        """
+        context_reg(self._ql, self._saved_states)
+        context_asm(self._ql, self._ql.reg.arch_pc, 4)
+
     def do_run(self, *args):
         """
         launch qiling instance
