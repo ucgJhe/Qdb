@@ -24,7 +24,7 @@ just uncomment the one you want to test in example.py and run it with `python3 e
 # simple setup
 from qdb import Qdb
 
-Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
+Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu", rr=True).interactive()
 ```
 
 ### 1. commandline-based user interface
@@ -50,6 +50,15 @@ Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu").interactive()
 - use command `examine` or `x` to read data from memory
 
 ![](pics/mem_examination.png?raw=true)
+
+### 5. record and replay
+
+- use command `backward` or `p` to step backward from current location
+- Note:
+    - 1. the address you want to step backward on it must be step-over before
+    - 2. make sure run Qdb with option `rr=True` like the example above
+
+![](pics/qdb_step_backward)
 
 ## Supported architecture for now
 
