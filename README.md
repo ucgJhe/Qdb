@@ -58,7 +58,7 @@ Qdb(["src/mips32el_hello"], "/usr/mipsel-linux-gnu", rr=True).interactive()
     - 1. the address you want to step backward on it must be step-over before
     - 2. make sure run Qdb with option `rr=True` like the example above
 
-![](pics/step_backward)
+![](pics/step_backward.png?raw=true)
 
 ## Supported architecture for now
 
