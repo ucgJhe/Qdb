@@ -13,10 +13,10 @@ from .utils import parse_int, handle_bnj, is_thumb, diff_snapshot_save, diff_sna
 
 class Qldbg(cmd.Cmd):
 
-    def __init__(self, filename, rootfs, console=True, log_dir=None, rr=False):
+    def __init__(self, argv, rootfs, console=True, log_dir=None, rr=False):
 
         self.ql_config = {
-                "filename": filename,
+                "argv": argv,
                 "rootfs": rootfs,
                 "console": console,
                 "log_dir": log_dir,
