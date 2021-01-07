@@ -44,7 +44,7 @@ class Qldbg(cmd.Cmd):
             return None, None, line
         elif line[0] == '?':
             line = 'help ' + line[1:]
-        elif line[0] == '!':
+        elif line.startswith('!'):
             if hasattr(self, 'do_shell'):
                 line = 'shell ' + line[1:]
             else:
