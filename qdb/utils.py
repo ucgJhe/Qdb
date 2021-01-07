@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 from functools import partial
 
 from qiling.const import *
@@ -31,6 +32,7 @@ def dump_regs(ql):
                 "r8", "r9", "r10", "r11",
                 "r12", "sp", "lr", "pc",
                 )
+
 
     return {reg_name: getattr(ql.reg, reg_name) for reg_name in _reg_order}
 
@@ -105,13 +107,21 @@ def is_thumb(bits):
 
 def disasm(ql, address):
     md = ql.create_disassembler()
-    return next(md.disasm(_read_inst(ql, address), address))
+
+    try:
+        ret = next(md.disasm(_read_inst(ql, address), address))
+
+    except StopIteration:
+        ret = None
+
+    return ret
 
 
 def _read_inst(ql, addr):
 
+    result = ql.mem.read(addr, 4)
+
     if ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB):
-        result = ql.mem.read(addr, 4) # default option for arm instruction
         if is_thumb(ql.reg.cpsr):
 
             first_two = ql.unpack16(ql.mem.read(addr, 2))
@@ -125,9 +135,6 @@ def _read_inst(ql, addr):
 
                 latter_two = ql.unpack16(ql.mem.read(addr+2, 2))
                 result += ql.pack16(latter_two)
-
-    elif ql.archtype == QL_ARCH.MIPS:
-        result = ql.mem.read(addr, 4)
 
     return result
 
@@ -421,7 +428,7 @@ def diff_snapshot_save(current_state_dicts, prev_states):
         result.update({"cpu_context": cur_cpu_ctx_set})
 
         if "mem" in prev_states and cur_mem_set != prev_states["mem"]:
-            # save changes if its different
+            # save changes if its different 
             cur_mem_set -= prev_states["mem"]
             result.update({"mem": cur_mem_set})
 

@@ -8,6 +8,7 @@ from qiling.const import *
 
 from .frontend import context_printer, context_reg, context_asm, examine_mem
 from .utils import parse_int, handle_bnj, is_thumb, diff_snapshot_save, diff_snapshot_restore, CODE_END
+from .const import *
 
 
 
@@ -27,10 +28,31 @@ class Qldbg(cmd.Cmd):
         self.prompt = "(Qdb) "
         self.breakpoints = {}
         self._saved_states = None
+        self.flow_trace = []
         if rr:
             self._states_list = [None]
 
         super().__init__()
+
+    def parseline(self, line):
+        """Parse the line into a command name and a string containing
+        the arguments.  Returns a tuple containing (command, args, line).
+        'command' and 'args' may be None if the line couldn't be parsed.
+        """
+        line = line.strip()
+        if not line:
+            return None, None, line
+        elif line[0] == '?':
+            line = 'help ' + line[1:]
+        elif line[0] == '!':
+            if hasattr(self, 'do_shell'):
+                line = 'shell ' + line[1:]
+            else:
+                return None, None, line
+        i, n = 0, len(line)
+        while i < n and line[i] in self.identchars: i = i+1
+        cmd, arg = line[:i], line[i:].strip()
+        return cmd, arg, line
 
     def interactive(self):
         self.cmdloop()
@@ -101,7 +123,13 @@ class Qldbg(cmd.Cmd):
         if self._ql is None:
             self._get_new_ql()
 
-        entry = self._ql.loader.entry_point
+
+        if self._ql.archtype == QL_ARCH.A8086:
+            entry = self._ql.loader.start_address
+        else:
+            entry = self._ql.loader.entry_point
+
+        # self._gen = handle_bnj(self._ql, entry)
         self.run(entry)
 
     def run(self, address=None):
@@ -112,6 +140,7 @@ class Qldbg(cmd.Cmd):
         # for arm thumb mode
         if self._ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB) and is_thumb(self._ql.reg.cpsr):
             address |= 1
+
 
         self._ql.emu_start(address, 0)
 
@@ -145,9 +174,12 @@ class Qldbg(cmd.Cmd):
             _cur_addr = self._ql.reg.arch_pc
 
             next_stop = handle_bnj(self._ql, _cur_addr)
+            # next_stop = next(self._gen)
 
             if next_stop is CODE_END:
                 return True
+
+            # self._ql.nprint(hex(next_stop))
 
             # whether bp placed already
             if self.breakpoints.get(next_stop, None):
@@ -163,7 +195,11 @@ class Qldbg(cmd.Cmd):
         pause at entry point by setting a temporary breakpoint on it
         """
         self._get_new_ql()
-        entry = self._ql.loader.entry_point  # ld.so
+
+        if self._ql.archtype == QL_ARCH.A8086:
+            entry = self._ql.loader.start_address
+        else:
+            entry = self._ql.loader.entry_point  # ld.so
         # entry = self._ql.loader.elf_entry # .text of binary
 
         if self._ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB) and entry & 1:
@@ -190,34 +226,60 @@ class Qldbg(cmd.Cmd):
 
             self.run(_cur_addr)
 
-    def do_examine(self, args):
+    def do_examine(self, line):
         """
-        read data from memory of qiling instance
+        Examine memory: x/FMT ADDRESS.
+        format letter: o(octal), x(hex), d(decimal), u(unsigned decimal), t(binary), f(float), a(address), i(instruction), c(char), s(string) and z(hex, zero padded on the left)
+        size letter: b(byte), h(halfword), w(word), g(giant, 8 bytes)
+        e.g. x/4wx 0x41414141 , print 4 word size begin from address 0x41414141 in hex
         """
 
-        _args = args.split()
+        _args = line.split()
+        DEFAULT_FMT = ('x', 4, 1)
 
-        if len(_args) == 1:
-            _xaddr = parse_int(_args[0])
-            _count = 1
+        if line.startswith("/"): # followed by format letter and size letter
 
-        elif len(_args) == 2:
-            _xaddr, _count = _args
-            _xaddr = parse_int(_xaddr)
-            _count = parse_int(_count)
+            def get_fmt(text):
+                def extract_count(t):
+                    return "".join([s for s in t if s.isdigit()])
+
+                f, s, c = DEFAULT_FMT
+                if extract_count(text):
+                    c = int(extract_count(text))
+
+                for char in text.strip(str(c)):
+                    if char in SIZE_LETTER.keys():
+                        s = SIZE_LETTER.get(char)
+
+                    elif char in FORMAT_LETTER:
+                        f = char
+
+                return (f, s, c)
+
+            fmt, addr = line.strip("/").split()
+            addr = parse_int(addr)
+            fmt = get_fmt(fmt)
+
+        elif len(_args) == 1: # only address
+            addr = parse_int(_args[0])
+            fmt = DEFAULT_FMT
 
         else:
-            print("wrong format\nUsage: x ADDRESS [SIZE]")
+            self.do_help("examine")
             return
 
-        examine_mem(self._ql, _xaddr, _count)
+        try:
+            examine_mem(self._ql, addr, fmt)
+        except:
+            print("something went wrong")
 
     def do_context(self, *args):
         """
         show context information for current location
         """
         context_reg(self._ql, self._saved_states)
-        context_asm(self._ql, self._ql.reg.arch_pc, 4)
+        self.flow_trace.append(self._ql.reg.arch_pc)
+        context_asm(self._ql, self._ql.reg.arch_pc, self.flow_trace)
 
     def do_show(self, *args):
         """
@@ -231,7 +293,10 @@ class Qldbg(cmd.Cmd):
         """
         disassemble instructions from address specified
         """
-        context_asm(self._ql, parse_int(address), 4)
+        try:
+            context_asm(self._ql, parse_int(address), 4)
+        except:
+            print("something went wrong")
 
     def do_shell(self, *command):
         """
@@ -249,14 +314,14 @@ class Qldbg(cmd.Cmd):
         return True
 
     do_r = do_run
-    do_s = do_step
     do_q = do_quit
     do_x = do_examine
     do_c = do_continue
     do_b = do_breakpoint
-    do_p = do_backward
+    do_si = do_step
+    do_rsi = do_backward
     do_dis = do_disassemble
-
+    
 
 
 if __name__ == "__main__":
