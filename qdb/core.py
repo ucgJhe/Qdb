@@ -123,13 +123,8 @@ class Qldbg(cmd.Cmd):
         if self._ql is None:
             self._get_new_ql()
 
+        entry = self._ql.loader.entry_point
 
-        if self._ql.archtype == QL_ARCH.A8086:
-            entry = self._ql.loader.start_address
-        else:
-            entry = self._ql.loader.entry_point
-
-        # self._gen = handle_bnj(self._ql, entry)
         self.run(entry)
 
     def run(self, address=None):
@@ -174,7 +169,6 @@ class Qldbg(cmd.Cmd):
             _cur_addr = self._ql.reg.arch_pc
 
             next_stop = handle_bnj(self._ql, _cur_addr)
-            # next_stop = next(self._gen)
 
             if next_stop is CODE_END:
                 return True
