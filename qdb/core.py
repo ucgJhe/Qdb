@@ -190,16 +190,15 @@ class Qldbg(cmd.Cmd):
         """
         self._get_new_ql()
 
-        if self._ql.archtype == QL_ARCH.A8086:
-            entry = self._ql.loader.start_address
-        else:
-            entry = self._ql.loader.entry_point  # ld.so
+        entry = self._ql.loader.entry_point  # ld.so
         # entry = self._ql.loader.elf_entry # .text of binary
 
         if self._ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB) and entry & 1:
             entry -= 1
 
-        self.set_breakpoint(entry, _is_temp=True)
+        if entry not in self.breakpoints.keys():
+            self.set_breakpoint(entry, _is_temp=True)
+
         self.do_run()
 
     def do_breakpoint(self, address):
