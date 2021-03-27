@@ -12,7 +12,7 @@ A multi-architecture and cross-platform debugger baked by [Qiling Framework](htt
 
 ## How to run example.py
 
-make sure you install `mipsel-linux-gnu-gcc` or `arm-linux-gnueabihf`
+make sure you install `gcc-multilib-mipsel-linux-gnu` `gcc-multilib-arm-linux-gnueabihf`
 
 and make binary in src directory `cd src; make`
 

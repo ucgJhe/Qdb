@@ -40,8 +40,8 @@ def examine_mem(ql, addr, fmt):
             offset = line * sz * 4
             print("0x{:x}:\t".format(addr+offset), end="")
 
-            idx = line * sz
-            for each in mem_read[idx:idx+(sz*4)]:
+            idx = line * ql.archbit // 8
+            for each in mem_read[idx:idx+(ql.archbit // 8)]:
                 data = unpack(each, sz)
                 prefix = "0x" if ft in ("x", "a") else ""
                 pad = '0' + str(sz*2) if ft in ('x', 'a', 't') else ''
@@ -166,7 +166,7 @@ def print_asm(ql, ins):
         print("\t0x%x\t%s %s" % fmt)
 
 
-def context_asm(ql, address, flow_trace, *args, **kwargs):
+def context_asm(ql, address, *args, **kwargs):
 
     with context_printer(ql, field_name="[Code]"):
 
