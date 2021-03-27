@@ -14,13 +14,13 @@ from .const import *
 
 class Qldbg(cmd.Cmd):
 
-    def __init__(self, argv, rootfs, console=True, log_dir=None, rr=False):
+    def __init__(self, argv, rootfs, console=True, log_file=None, rr=False):
 
         self.ql_config = {
                 "argv": argv,
                 "rootfs": rootfs,
                 "console": console,
-                "log_dir": log_dir,
+                "log_file": log_file,
                 "output": "default",
                 }
 
