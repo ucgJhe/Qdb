@@ -231,7 +231,7 @@ class Qldbg(cmd.Cmd):
             if not examine_mem(self._ql, line):
                 self.do_help("examine")
         except:
-            print("something went wrong")
+            print("something went wrong ...")
 
     def do_context(self, *args):
         """

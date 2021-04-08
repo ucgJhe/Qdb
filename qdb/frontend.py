@@ -13,9 +13,10 @@ from .const import *
 # read data from memory of qiling instance
 def examine_mem(ql, line):
 
-    if line.startswith("/"): # followed by format letter and size letter
+    _args = line.split()
+    DEFAULT_FMT = ('x', 4, 1)
 
-        DEFAULT_FMT = ('x', 4, 1)
+    if line.startswith("/"): # followed by format letter and size letter
 
         def get_fmt(text):
             def extract_count(t):
@@ -35,15 +36,22 @@ def examine_mem(ql, line):
             return (f, s, c)
 
         fmt, addr = line.strip("/").split()
-        addr = parse_int(addr)
+
         fmt = get_fmt(fmt)
 
     elif len(_args) == 1: # only address
-        addr = parse_int(_args[0])
+        addr = _args[0]
         fmt = DEFAULT_FMT
 
     else:
         return False
+
+    addr = addr.strip('$')
+
+    if ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM64, QL_ARCH.ARM_THUMB):
+        addr = addr.replace("fp", "r11")
+
+    addr = getattr(ql.reg, addr) if addr in ql.reg.register_mapping.keys() else parse_int(addr)
 
     def unpack(bs, sz):
         return {
