@@ -4,7 +4,7 @@ import cmd
 from functools import partial
 
 from qiling import *
-from qiling.const import *
+from qiling.const import QL_ARCH, QL_VERBOSE
 
 from .frontend import context_printer, context_reg, context_asm, examine_mem
 from .utils import parse_int, handle_bnj, is_thumb, CODE_END
@@ -14,14 +14,14 @@ from .const import *
 
 class Qldbg(cmd.Cmd):
 
-    def __init__(self, argv, rootfs, console=True, log_file=None, rr=False):
+    def __init__(self, argv, rootfs, console=True, log_file=None, rr=False, verbose=QL_VERBOSE.DEFAULT):
 
         self.ql_config = {
                 "argv": argv,
                 "rootfs": rootfs,
                 "console": console,
                 "log_file": log_file,
-                "output": "default",
+                "verbose": verbose,
                 }
 
         self._ql = None
@@ -95,7 +95,7 @@ class Qldbg(cmd.Cmd):
         self.breakpoints.update({address: {"hook": _hook, "hitted": False, "temp": _is_temp}})
 
         if _is_temp == False:
-            print("Breakpoint at 0x%08x" % address)
+            print(f"Breakpoint at 0x{address:08x}")
 
     def _breakpoint_handler(self, ql, _is_temp=False):
         """
@@ -109,7 +109,7 @@ class Qldbg(cmd.Cmd):
             if self.breakpoints.get(_cur_addr)["hitted"]:
                 return
 
-            print("hit breakpoint at 0x%08x" % _cur_addr)
+            print(f"hit breakpoint at 0x{_cur_addr:08x}")
             self.breakpoints.get(_cur_addr)["hitted"] = True
 
         self.do_context()
@@ -141,6 +141,9 @@ class Qldbg(cmd.Cmd):
 
 
     def do_backward(self, *args):
+        """
+        step backward if possible
+        """
 
         if getattr(self, "_states_list", None) is None or self._states_list[-1] is None:
             print("there is no way back !!!")
@@ -212,7 +215,7 @@ class Qldbg(cmd.Cmd):
         """
         if self._ql is not None:
             _cur_addr = self._ql.reg.arch_pc
-            print("continued from 0x%08x" % _cur_addr)
+            print(f"continued from 0x{_cur_addr:08x}")
 
             self.run(_cur_addr)
 
@@ -224,42 +227,9 @@ class Qldbg(cmd.Cmd):
         e.g. x/4wx 0x41414141 , print 4 word size begin from address 0x41414141 in hex
         """
 
-        _args = line.split()
-        DEFAULT_FMT = ('x', 4, 1)
-
-        if line.startswith("/"): # followed by format letter and size letter
-
-            def get_fmt(text):
-                def extract_count(t):
-                    return "".join([s for s in t if s.isdigit()])
-
-                f, s, c = DEFAULT_FMT
-                if extract_count(text):
-                    c = int(extract_count(text))
-
-                for char in text.strip(str(c)):
-                    if char in SIZE_LETTER.keys():
-                        s = SIZE_LETTER.get(char)
-
-                    elif char in FORMAT_LETTER:
-                        f = char
-
-                return (f, s, c)
-
-            fmt, addr = line.strip("/").split()
-            addr = parse_int(addr)
-            fmt = get_fmt(fmt)
-
-        elif len(_args) == 1: # only address
-            addr = parse_int(_args[0])
-            fmt = DEFAULT_FMT
-
-        else:
-            self.do_help("examine")
-            return
-
         try:
-            examine_mem(self._ql, addr, fmt)
+            if not examine_mem(self._ql, line):
+                self.do_help("examine")
         except:
             print("something went wrong")
 
@@ -273,7 +243,7 @@ class Qldbg(cmd.Cmd):
 
     def do_show(self, *args):
         """
-        show some runtime informations
+        show some runtime information
         """
         self._ql.mem.show_mapinfo()
         print("Qdb:", [(hex(idx), val) for idx, val in self.breakpoints.items()])
@@ -286,7 +256,7 @@ class Qldbg(cmd.Cmd):
         try:
             context_asm(self._ql, parse_int(address), 4)
         except:
-            print("something went wrong")
+            print("something went wrong ...")
 
     def do_shell(self, *command):
         """
@@ -295,7 +265,7 @@ class Qldbg(cmd.Cmd):
         try:
             print(eval(*command))
         except:
-            print("something went wrong")
+            print("something went wrong ...")
 
     def do_quit(self, *args):
         """

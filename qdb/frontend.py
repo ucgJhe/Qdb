@@ -1,16 +1,49 @@
 #!/usr/bin/env python3
 
-import math, copy, os
+import copy, math, os
 from contextlib import contextmanager
 
 from qiling.const import QL_ARCH
 
-from .utils import dump_regs, get_arm_flags, disasm
+from .utils import dump_regs, get_arm_flags, disasm, parse_int
 from .const import *
 
 
+
 # read data from memory of qiling instance
-def examine_mem(ql, addr, fmt):
+def examine_mem(ql, line):
+
+    if line.startswith("/"): # followed by format letter and size letter
+
+        DEFAULT_FMT = ('x', 4, 1)
+
+        def get_fmt(text):
+            def extract_count(t):
+                return "".join([s for s in t if s.isdigit()])
+
+            f, s, c = DEFAULT_FMT
+            if extract_count(text):
+                c = int(extract_count(text))
+
+            for char in text.strip(str(c)):
+                if char in SIZE_LETTER.keys():
+                    s = SIZE_LETTER.get(char)
+
+                elif char in FORMAT_LETTER:
+                    f = char
+
+            return (f, s, c)
+
+        fmt, addr = line.strip("/").split()
+        addr = parse_int(addr)
+        fmt = get_fmt(fmt)
+
+    elif len(_args) == 1: # only address
+        addr = parse_int(_args[0])
+        fmt = DEFAULT_FMT
+
+    else:
+        return False
 
     def unpack(bs, sz):
         return {
@@ -50,6 +83,9 @@ def examine_mem(ql, addr, fmt):
                 print("{}{{:{}{}}}\t".format(prefix, pad, ft).format(data), end="")
 
             print()
+
+    return True
+
 
 # get terminal window height and width
 def get_terminal_size():
@@ -147,7 +183,7 @@ def context_reg(ql, saved_states=None, *args, **kwargs):
         for idx in range(8):
             _addr = ql.reg.arch_sp + idx * 4
             _val = ql.mem.read(_addr, ql.archbit // 8)
-            print("$sp+0x%02x|[0x%08x]=> 0x%08x" % (idx*4, _addr, ql.unpack(_val)), end="")
+            print(f"$sp+0x{idx*4:02x}|[0x{_addr:08x}]=> 0x{ql.unpack(_val):08x}", end="")
 
             try: # try to deference wether its a pointer
                 _deref = ql.mem.read(_addr, ql.archbit // 8)
@@ -155,15 +191,15 @@ def context_reg(ql, saved_states=None, *args, **kwargs):
                 _deref = None
 
             if _deref:
-                print(" => 0x%08x" % ql.unpack(_deref))
+                print(f" => 0x{ql.unpack(_deref):08x}")
 
 
 def print_asm(ql, ins):
     fmt = (ins.address, ins.mnemonic.ljust(6), ins.op_str)
     if ql.reg.arch_pc == ins.address:
-        print("PC ==>  0x%x\t%s %s" % fmt)
+        print(f"PC ==>  0x{fmt[0]:x}\t{fmt[1]} {fmt[2]}")
     else:
-        print("\t0x%x\t%s %s" % fmt)
+        print(f"\t0x{fmt[0]:x}\t{fmt[1]} {fmt[2]}")
 
 
 def context_asm(ql, address, *args, **kwargs):
