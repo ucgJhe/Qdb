@@ -48,8 +48,10 @@ def examine_mem(ql, line):
 
     addr = addr.strip('$')
 
-    if ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM64, QL_ARCH.ARM_THUMB):
+    if ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB):
         addr = addr.replace("fp", "r11")
+    elif ql.archtype == QL_ARCH.MIPS:
+        addr = addr.replace("fp", "s8")
 
     addr = getattr(ql.reg, addr) if addr in ql.reg.register_mapping.keys() else parse_int(addr)
 
