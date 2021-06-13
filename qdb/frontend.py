@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+from typing import Optional, Mapping, Iterable, Union
 
 import copy, math, os
 from contextlib import contextmanager
@@ -11,7 +13,7 @@ from .const import *
 
 
 # read data from memory of qiling instance
-def examine_mem(ql, line):
+def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
 
     _args = line.split()
     DEFAULT_FMT = ('x', 4, 1)
@@ -98,12 +100,12 @@ def examine_mem(ql, line):
 
 
 # get terminal window height and width
-def get_terminal_size():
+def get_terminal_size() -> Iterable:
     return map(int, os.popen('stty size', 'r').read().split())
 
 
 # try to read data from ql memory
-def _try_read(ql, address, size):
+def _try_read(ql: Qiling, address: int, size: int) -> Optional[bytes]:
     try:
         result = ql.mem.read(address, size)
     except:
@@ -114,14 +116,14 @@ def _try_read(ql, address, size):
 
 # divider printer
 @contextmanager
-def context_printer(ql, field_name, ruler="="):
+def context_printer(ql: Qiling, field_name: str, ruler: str = "str") -> None:
     _height, _width = get_terminal_size()
     print(field_name, ruler * (_width - len(field_name) - 1))
     yield
     print(ruler * _width)
 
 
-def context_reg(ql, saved_states=None, *args, **kwargs):
+def context_reg(ql: Qiling, saved_states: Optional[Mapping[str, int]] = None, /, *args, **kwargs) -> None:
 
     # context render for registers
     with context_printer(ql, "[Registers]"):
@@ -204,7 +206,7 @@ def context_reg(ql, saved_states=None, *args, **kwargs):
                 print(f" => 0x{ql.unpack(_deref):08x}")
 
 
-def print_asm(ql, ins):
+def print_asm(ql: Qiling, ins: CsInsn) -> None:
     fmt = (ins.address, ins.mnemonic.ljust(6), ins.op_str)
     if ql.reg.arch_pc == ins.address:
         print(f"PC ==>  0x{fmt[0]:x}\t{fmt[1]} {fmt[2]}")
@@ -212,7 +214,7 @@ def print_asm(ql, ins):
         print(f"\t0x{fmt[0]:x}\t{fmt[1]} {fmt[2]}")
 
 
-def context_asm(ql, address, *args, **kwargs):
+def context_asm(ql: Qiling, address: int) -> None:
 
     with context_printer(ql, field_name="[Code]"):
 

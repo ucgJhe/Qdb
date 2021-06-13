@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+from typing import Optional
+
 import cmd
 from functools import partial
 
@@ -14,27 +17,34 @@ from .const import *
 
 class Qldbg(cmd.Cmd):
 
-    def __init__(self, argv, rootfs, console=True, log_file=None, rr=False, verbose=QL_VERBOSE.DEFAULT):
+    def __init__(
+            self: Qldbg,
+            argv: [str],
+            rootfs: str,
+            console: bool = True,
+            rr: bool = False,
+            verbose: QL_VERBOSE = QL_VERBOSE.DEFAULT,
+            log_file: Optional[str] = None,
+            ) -> Qldbg:
 
         self.ql_config = {
                 "argv": argv,
                 "rootfs": rootfs,
                 "console": console,
-                "log_file": log_file,
                 "verbose": verbose,
+                "log_file": log_file,
                 }
 
         self._ql = None
         self.prompt = "(Qdb) "
         self.breakpoints = {}
         self._saved_states = None
-        self.flow_trace = []
         if rr:
             self._states_list = [None]
 
         super().__init__()
 
-    def parseline(self, line):
+    def parseline(self: Qldbg, line: str, /, *args, **kargs) -> [Optional[str], Optional[str], str]:
         """Parse the line into a command name and a string containing
         the arguments.  Returns a tuple containing (command, args, line).
         'command' and 'args' may be None if the line couldn't be parsed.
@@ -54,18 +64,17 @@ class Qldbg(cmd.Cmd):
         cmd, arg = line[:i], line[i:].strip()
         return cmd, arg, line
 
-    def interactive(self):
+    def interactive(self: Qldbg, /, *args, **kwargs) -> None:
         self.cmdloop()
 
-    def emptyline(self, *args):
+    def emptyline(self: Qldbg, /, *args, **kwargs) -> Optional[str]:
         """
         repeat last command
         """
-        _lastcmd = getattr(self, "do_" + self.lastcmd, None)
-        if _lastcmd:
+        if (_lastcmd := getattr(self, "do_" + self.lastcmd, None)):
             return _lastcmd()
 
-    def _get_new_ql(self):
+    def _get_new_ql(self: Qldbg, /, *args, **kwargs) -> None:
         """
         build a new qiling instance for self._ql
         """
@@ -74,15 +83,14 @@ class Qldbg(cmd.Cmd):
 
         self._ql = Qiling(**self.ql_config)
 
-    def del_breakpoint(self, address):
+    def del_breakpoint(self: Qldbg, address: str) -> None:
         """
         handle internal breakpoint removing operation
         """
-        _bp = self.breakpoints.pop(address, None)
-        if _bp:
+        if (_bp := self.breakpoints.pop(address, None)):
             _bp["hook"].remove()
 
-    def set_breakpoint(self, address, _is_temp=False):
+    def set_breakpoint(self: Qldbg, address: str, _is_temp: bool = False) -> None:
         """
         handle internal breakpoint adding operation
         """
@@ -97,7 +105,7 @@ class Qldbg(cmd.Cmd):
         if _is_temp == False:
             print(f"Breakpoint at 0x{address:08x}")
 
-    def _breakpoint_handler(self, ql, _is_temp=False):
+    def _breakpoint_handler(self: Qldbg, ql: Qiling, _is_temp: bool = False) -> None:
         """
         handle all breakpoints
         """
@@ -115,7 +123,7 @@ class Qldbg(cmd.Cmd):
         self.do_context()
         self._ql.emu_stop()
 
-    def do_run(self, *args):
+    def do_run(self: Qldbg, /, *args, **kwargs) -> None:
         """
         launch qiling instance
         """
@@ -127,7 +135,7 @@ class Qldbg(cmd.Cmd):
 
         self.run(entry)
 
-    def run(self, address=None):
+    def run(self: Qldbg, address: Optional[str] = None, /, *args, **kwargs) -> None:
         """
         handle qiling instance launching
         """
@@ -201,7 +209,7 @@ class Qldbg(cmd.Cmd):
 
         self.do_run()
 
-    def do_breakpoint(self, address):
+    def do_breakpoint(self: Qldbg, address: str, /, *args, **kwargs) -> None:
         """
         set breakpoint on specific address
         """
@@ -209,7 +217,7 @@ class Qldbg(cmd.Cmd):
             baddr = parse_int(address)
             self.set_breakpoint(baddr)
 
-    def do_continue(self, *args):
+    def do_continue(self: Qldbg, /, *args, **kwargs) -> None:
         """
         continue execution till next breakpoint or the end
         """
@@ -218,8 +226,10 @@ class Qldbg(cmd.Cmd):
             print(f"continued from 0x{_cur_addr:08x}")
 
             self.run(_cur_addr)
+        else:
+            print("there is nowhere to be continued")
 
-    def do_examine(self, line):
+    def do_examine(self: Qldbg, line: str, /, *args, **kwargs) -> None:
         """
         Examine memory: x/FMT ADDRESS.
         format letter: o(octal), x(hex), d(decimal), u(unsigned decimal), t(binary), f(float), a(address), i(instruction), c(char), s(string) and z(hex, zero padded on the left)
@@ -233,15 +243,14 @@ class Qldbg(cmd.Cmd):
         except:
             print("something went wrong ...")
 
-    def do_context(self, *args):
+    def do_context(self: Qldbg, /, *args, **kwargs) -> None:
         """
         show context information for current location
         """
         context_reg(self._ql, self._saved_states)
-        self.flow_trace.append(self._ql.reg.arch_pc)
-        context_asm(self._ql, self._ql.reg.arch_pc, self.flow_trace)
+        context_asm(self._ql, self._ql.reg.arch_pc)
 
-    def do_show(self, *args):
+    def do_show(self: Qldbg, /, *args, **kwargs) -> None:
         """
         show some runtime information
         """
@@ -249,7 +258,7 @@ class Qldbg(cmd.Cmd):
         print("Qdb:", [(hex(idx), val) for idx, val in self.breakpoints.items()])
         print("internal:", [(hex(idx), val) for idx, val in self._ql._addr_hook.items()])
 
-    def do_disassemble(self, address):
+    def do_disassemble(self: Qldbg, address: str, /, *args, **kwargs) -> None:
         """
         disassemble instructions from address specified
         """
@@ -258,7 +267,7 @@ class Qldbg(cmd.Cmd):
         except:
             print("something went wrong ...")
 
-    def do_shell(self, *command):
+    def do_shell(self: Qldbg, /, *command: str, **kwargs) -> None:
         """
         run python code,also a space between exclamation mark and command was necessary
         """
@@ -267,7 +276,7 @@ class Qldbg(cmd.Cmd):
         except:
             print("something went wrong ...")
 
-    def do_quit(self, *args):
+    def do_quit(self: Qldbg, /, *args, **kwargs) -> bool:
         """
         exit Qdb
         """
