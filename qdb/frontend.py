@@ -116,7 +116,7 @@ def _try_read(ql: Qiling, address: int, size: int) -> Optional[bytes]:
 
 # divider printer
 @contextmanager
-def context_printer(ql: Qiling, field_name: str, ruler: str = "str") -> None:
+def context_printer(ql: Qiling, field_name: str, ruler: str = "=") -> None:
     _height, _width = get_terminal_size()
     print(field_name, ruler * (_width - len(field_name) - 1))
     yield
