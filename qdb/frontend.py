@@ -85,8 +85,8 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
             offset = line * sz * 4
             print("0x{:x}:\t".format(addr+offset), end="")
 
-            idx = line * ql.archbit // 8
-            for each in mem_read[idx:idx+(ql.archbit // 8)]:
+            idx = line * ql.pointersize
+            for each in mem_read[idx:idx+ql.pointersize]:
                 data = unpack(each, sz)
                 prefix = "0x" if ft in ("x", "a") else ""
                 pad = '0' + str(sz*2) if ft in ('x', 'a', 't') else ''
@@ -194,11 +194,11 @@ def context_reg(ql: Qiling, saved_states: Optional[Mapping[str, int]] = None, /,
 
         for idx in range(8):
             _addr = ql.reg.arch_sp + idx * 4
-            _val = ql.mem.read(_addr, ql.archbit // 8)
+            _val = ql.mem.read(_addr, ql.pointersize)
             print(f"$sp+0x{idx*4:02x}|[0x{_addr:08x}]=> 0x{ql.unpack(_val):08x}", end="")
 
             try: # try to deference wether its a pointer
-                _deref = ql.mem.read(_addr, ql.archbit // 8)
+                _deref = ql.mem.read(_addr, ql.pointersize)
             except:
                 _deref = None
 
