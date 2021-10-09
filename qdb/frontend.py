@@ -11,7 +11,6 @@ from .utils import dump_regs, get_arm_flags, disasm, parse_int
 from .const import *
 
 
-
 # read data from memory of qiling instance
 def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
 
@@ -52,6 +51,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
 
     if ql.archtype in (QL_ARCH.ARM, QL_ARCH.ARM_THUMB):
         addr = addr.replace("fp", "r11")
+
     elif ql.archtype == QL_ARCH.MIPS:
         addr = addr.replace("fp", "s8")
 
@@ -149,7 +149,7 @@ def context_reg(ql: Qiling, saved_states: Optional[Mapping[str, int]] = None, /,
                 line = "{}{}: 0x{{:08x}} {}\t".format(_colors[(idx-1) // 4], r, color.END)
 
                 if _diff and r in _diff:
-                    line = "{}{}".format(color.UNDERLINE, color.BOLD) + line
+                    line = f"{color.UNDERLINE}{color.BOLD}{line}"
 
                 if idx % 4 == 0 and idx != 32:
                     line += "\n"

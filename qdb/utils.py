@@ -6,8 +6,7 @@ from functools import partial
 
 from qiling.const import *
 
-CODE_END = True 
-
+CODE_END = True
 
 
 def dump_regs(ql: Qiling) -> Mapping[str, int]:
@@ -34,11 +33,11 @@ def dump_regs(ql: Qiling) -> Mapping[str, int]:
                 "r12", "sp", "lr", "pc",
                 )
 
-
     return {reg_name: getattr(ql.reg, reg_name) for reg_name in _reg_order}
 
 
 def get_arm_flags(bits: int) -> Mapping[str, int]:
+
     def _get_mode(bits):
         return {
                 0b10000: "User",
@@ -102,10 +101,10 @@ def is_thumb(bits: int) -> bool:
 
 
 def disasm(ql: Qiling, address: int) -> Optional[int]:
-    md = ql.create_disassembler()
+    # md = ql.create_disassembler()
 
     try:
-        ret = next(md.disasm(_read_inst(ql, address), address))
+        ret = next(ql.disassembler.disasm(_read_inst(ql, address), address))
 
     except StopIteration:
         ret = None
@@ -128,7 +127,7 @@ def _read_inst(ql: Qiling, addr: str) -> int:
                 first_two & 0xf000 == 0xf000,
                 first_two & 0xf800 == 0xf800,
                 first_two & 0xe800 == 0xe800,
-                ]):
+                 ]):
 
                 latter_two = ql.unpack16(ql.mem.read(addr+2, 2))
                 result += ql.pack16(latter_two)
@@ -139,11 +138,10 @@ def _read_inst(ql: Qiling, addr: str) -> int:
 def handle_bnj_arm(ql: Qiling, cur_addr: str) -> int:
 
     def _read_reg_val(regs, _reg):
-        return getattr(ql.reg, _reg.replace("ip", "r12"))
+        return getattr(ql.reg, _reg.replace("ip", "r12").replace("fp", "r11"))
 
     def regdst_eq_pc(op_str):
         return op_str.partition(", ")[0] == "pc"
-
 
     read_inst = partial(_read_inst, ql)
     read_reg_val = partial(_read_reg_val, ql.reg)
@@ -261,7 +259,7 @@ def handle_bnj_arm(ql: Qiling, cur_addr: str) -> int:
                 "le": lambda V, C, Z, N: (Z == 1 or N != V),
                 "hi": lambda V, C, Z, N: (Z == 0 and C == 1),
                 }.get(line.op_str)(*get_cpsr(ql.reg.cpsr))
-        
+
         it_block_range = [each_char for each_char in line.mnemonic[1:]]
 
         next_addr = cur_addr + ARM_THUMB_INST_SIZE
@@ -409,7 +407,6 @@ def handle_bnj_mips(ql: Qiling, cur_addr: str) -> int:
             ret_addr = targets[-1]
 
     return ret_addr
-
 
 
 if __name__ == "__main__":
