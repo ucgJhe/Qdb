@@ -63,7 +63,7 @@ def get_arm_flags(bits: int) -> Mapping[str, int]:
             }
 
 
-# parse unsigned integer from string 
+# parse unsigned integer from string
 def parse_int(s: str) -> int:
     return int(s, 16) if s.startswith("0x") else int(s)
 
@@ -407,6 +407,22 @@ def handle_bnj_mips(ql: Qiling, cur_addr: str) -> int:
             ret_addr = targets[-1]
 
     return ret_addr
+
+
+class Breakpoint(object):
+    """
+    Breakpoint
+    """
+    def __init__(self, address):
+        self.hook = None
+        self.hitted = False
+        self.address = address
+
+
+class TempBreakpoint(Breakpoint):
+    """
+    Temporary breakpoint
+    """
 
 
 if __name__ == "__main__":
