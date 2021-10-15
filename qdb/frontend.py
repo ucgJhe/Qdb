@@ -17,7 +17,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
     _args = line.split()
     DEFAULT_FMT = ('x', 4, 1)
 
-    if line.startswith("/"): # followed by format letter and size letter
+    if line.startswith("/"):  # followed by format letter and size letter
 
         def get_fmt(text):
             def extract_count(t):
@@ -40,7 +40,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
 
         fmt = get_fmt(fmt)
 
-    elif len(_args) == 1: # only address
+    elif len(_args) == 1:  # only address
         addr = _args[0]
         fmt = DEFAULT_FMT
 
@@ -72,7 +72,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
         for offset in range(addr, addr+ct*4, 4):
             line = disasm(ql, offset)
             if line:
-                print("0x{:x}: {}\t{}".format(line.address, line.mnemonic, line.op_str))
+                print(f"0x{line.address:x}: {line.mnemonic}\t{line.op_str}")
 
         print()
 
@@ -83,7 +83,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
 
         for line in range(lines):
             offset = line * sz * 4
-            print("0x{:x}:\t".format(addr+offset), end="")
+            print("0x{addr+offset:x}:\t", end="")
 
             idx = line * ql.pointersize
             for each in mem_read[idx:idx+ql.pointersize]:
@@ -92,7 +92,7 @@ def examine_mem(ql: Qiling, line: str) -> Union[bool, (str, int, int)]:
                 pad = '0' + str(sz*2) if ft in ('x', 'a', 't') else ''
                 ft = ft.lower() if ft in ("x", "o", "b", "d") else ft.lower().replace("t", "b").replace("a", "x")
 
-                print("{}{{:{}{}}}\t".format(prefix, pad, ft).format(data), end="")
+                print(f"{prefix}{data:{pad}{ft}}\t", end="")
 
             print()
 
@@ -197,7 +197,7 @@ def context_reg(ql: Qiling, saved_states: Optional[Mapping[str, int]] = None, /,
             _val = ql.mem.read(_addr, ql.pointersize)
             print(f"$sp+0x{idx*4:02x}|[0x{_addr:08x}]=> 0x{ql.unpack(_val):08x}", end="")
 
-            try: # try to deference wether its a pointer
+            try:  # try to deference wether its a pointer
                 _deref = ql.mem.read(_addr, ql.pointersize)
             except:
                 _deref = None
