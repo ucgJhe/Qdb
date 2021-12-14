@@ -1,3 +1,3 @@
 #!/usr/bin/env python3
 
-from .core import Qldbg as Qdb
+from .core import QlQdb as Qdb
