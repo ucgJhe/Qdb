@@ -11,10 +11,10 @@ import cmd
 from qiling import Qiling
 from qiling.const import QL_ARCH, QL_VERBOSE
 
-from .frontend import context_reg, context_asm, examine_mem
-from .utils import _parse_int, handle_bnj, is_thumb, CODE_END, parse_int
-from .utils import Breakpoint, TempBreakpoint
-from .const import *
+from .frontend import examine_mem, setup_ctx_manager
+from .utils import is_thumb, parse_int, setup_branch_predictor, disasm
+from .utils import Breakpoint, TempBreakpoint, SnapshotManager
+from .const import color
 
 
 class QlQdb(cmd.Cmd):
@@ -34,10 +34,10 @@ class QlQdb(cmd.Cmd):
         self.prompt = f"{color.BOLD}{color.RED}Qdb> {color.END}"
         self._saved_reg_dump = None
         self.bp_list = {}
-        self.rr = rr
 
-        if self.rr:
-            self._states_list = []
+        self.rr = SnapshotManager(self.ql) if rr else None
+        self.ctx = setup_ctx_manager(self.ql)
+        self.predictor = setup_branch_predictor(self.ql)
 
         super().__init__()
 
@@ -48,16 +48,39 @@ class QlQdb(cmd.Cmd):
         # self.ql.loader.entry_point  # ld.so
         # self.ql.loader.elf_entry    # .text of binary
 
+        def bp_handler(ql, address, size, bp_list):
+
+            if (bp := self.bp_list.get(address, None)):
+
+                if isinstance(bp, TempBreakpoint):
+                    # remove TempBreakpoint once hitted
+                    self.del_breakpoint(bp)
+
+                else:
+                    if bp.hitted:
+                        return
+
+                    print(f"{color.CYAN}[+] hit breakpoint at 0x{self.cur_addr:08x}{color.END}")
+                    bp.hitted = True
+
+                ql.stop()
+                self.do_context()
+
+        self.ql.hook_code(bp_handler, self.bp_list)
+
         if init_hook and self.ql.loader.entry_point != init_hook:
             self.do_breakpoint(init_hook)
 
         self.cur_addr = self.ql.loader.entry_point
 
+        if self.rr:
+            self.rr.save()
+
         if self.ql.archtype == QL_ARCH.CORTEX_M:
             self._run()
 
         else:
-            self._init_state = self.ql.save()
+            self.init_state = self.ql.save()
 
         self.do_context()
         self.interactive()
@@ -78,41 +101,6 @@ class QlQdb(cmd.Cmd):
 
         self.ql.reg.arch_pc = address
 
-    def _bp_handler(self: QlQdb, *args) -> None:
-        """
-        internal function for handling once breakpoint hitted
-        """
-
-        if (bp := self.bp_list.get(self.cur_addr, None)):
-
-            if isinstance(bp, TempBreakpoint):
-                # remove TempBreakpoint once hitted
-                self.del_breakpoint(bp)
-
-            else:
-                if bp.hitted:
-                    return
-
-                print(f"{color.CYAN}[+] hit breakpoint at 0x{self.cur_addr:08x}{color.END}")
-                bp.hitted = True
-
-            self.ql.stop()
-            self.do_context()
-
-    def _save(self: QlQdb, *args) -> None:
-        """
-        internal function for saving state of qiling instance
-        """
-
-        self._states_list.append(self.ql.save())
-
-    def _restore(self: QlQdb, *args) -> None:
-        """
-        internal function for restoring state of qiling instance
-        """
-
-        self.ql.restore(self._states_list.pop())
-
     def _run(self: Qldbg, address: int = 0, end: int = 0, count: int = 0) -> None:
         """
         internal function for emulating instruction
@@ -131,7 +119,6 @@ class QlQdb(cmd.Cmd):
                     else:
                         print(f"{color.CYAN}[+] hit breakpoint at 0x{self.cur_addr:08x}{color.END}")
 
-                    self.do_context()
                     break
 
                 self.ql.arch.step()
@@ -200,51 +187,79 @@ class QlQdb(cmd.Cmd):
         show context information for current location
         """
 
-        context_reg(self.ql, self._saved_reg_dump)
-        context_asm(self.ql, self.cur_addr)
+        self.ctx.context_reg(self._saved_reg_dump)
+        self.ctx.context_stack()
+        self.ctx.context_asm()
 
     def do_backward(self: QlQdb, *args) -> None:
         """
         step barkward if it's possible, option rr should be enabled and previous instruction must be executed before
         """
 
-        if getattr(self, "_states_list", None) is None or len(self._states_list) == 0:
+        if len(self.rr.layers) == 0:
             print(f"{color.RED}[!] there is no way back !!!{color.END}")
 
         else:
             print(f"{color.CYAN}[+] step backward ~{color.END}")
-            self._restore()
+            self.rr.restore()
             self.do_context()
 
-    def do_step(self: QlQdb, *args) -> Optional[bool]:
+    def update_reg_dump(self: QlQdb) -> None:
         """
-        execute one instruction at a time
+        internal function for updating registers dump
+        """
+        self._saved_reg_dump = dict(filter(lambda d: isinstance(d[0], str), self.ql.reg.save().items()))
+
+    def do_step_in(self: QlQdb, *args) -> Optional[bool]:
+        """
+        execute one instruction at a time, will enter subroutine
         """
 
         if self.ql is None:
             print(f"{color.RED}[!] The program is not being run.{color.END}")
 
         else:
-            # save reg dump for data highlighting changes
-            self._saved_reg_dump = dict(filter(lambda d: isinstance(d[0], str), self.ql.reg.save().items()))
+            self.update_reg_dump()
 
-            if self.rr:
-                self._save()
+            prophecy = self.predictor.predict()
 
-            _, next_stop = handle_bnj(self.ql, self.cur_addr)
-
-            if next_stop is CODE_END:
+            if prophecy.where is True:
                 return True
 
             if self.ql.archtype == QL_ARCH.CORTEX_M:
                 self.ql.arch.step()
-                self.ql.count -= 1
-
             else:
-                count = 1 if next_stop == self.cur_addr + 4 else 2
-                self._run(address=self.cur_addr, count=count)
+                self._run(count=1)
+
+                if self.rr:
+                    self.rr.save()
 
             self.do_context()
+
+    def do_step_over(self: QlQdb, *args) -> Option[bool]:
+        """
+        execute one instruction at a time, but WON't enter subroutine
+        """
+
+        if self.ql is None:
+            print(f"{color.RED}[!] The program is not being run.{color.END}")
+
+        else:
+
+            prophecy = self.predictor.predict()
+            self.update_reg_dump()
+
+            if prophecy.going:
+                cur_insn = disasm(self.ql, self.cur_addr)
+                self.set_breakpoint(self.cur_addr + cur_insn.size, is_temp=True)
+
+            else:
+                self.set_breakpoint(prophecy.where, is_temp=True)
+
+                self._run()
+
+                if self.rr:
+                    self.rr.save()
 
     def set_breakpoint(self: QlQdb, address: int, is_temp: bool = False) -> None:
         """
@@ -253,19 +268,14 @@ class QlQdb(cmd.Cmd):
 
         bp = TempBreakpoint(address) if is_temp else Breakpoint(address)
 
-        if self.ql.archtype != QL_ARCH.CORTEX_M:
-            # skip hook_address for cortex_m
-            bp.hook = self.ql.hook_address(self._bp_handler, address)
-
         self.bp_list.update({address: bp})
 
     def del_breakpoint(self: QlQdb, bp: Union[Breakpoint, TempBreakpoint]) -> None:
         """
-        internal function for removing breakpoints
+        internal function for removing breakpoint
         """
 
-        if self.bp_list.pop(bp.addr, None):
-            bp.hook.remove()
+        self.bp_list.pop(bp.addr, None)
 
     def do_start(self: QlQdb, *args) -> None:
         """
@@ -274,7 +284,7 @@ class QlQdb(cmd.Cmd):
 
         if self.ql.archtype != QL_ARCH.CORTEX_M:
 
-            self.ql.restore(self._init_state)
+            self.ql.restore(self.init_state)
             self.do_context()
 
     @parse_int
@@ -312,8 +322,8 @@ class QlQdb(cmd.Cmd):
         """
 
         try:
-            if not examine_mem(self.ql, line):
-                self.do_help("examine")
+            if type(err_msg := examine_mem(self.ql, line)) is str:
+                print(f"{color.RED}[!] {err_msg} ...{color.END}")
         except:
             print(f"{color.RED}[!] something went wrong ...{color.END}")
 
@@ -324,6 +334,7 @@ class QlQdb(cmd.Cmd):
 
         self.ql.mem.show_mapinfo()
         print(f"Breakpoints: {[hex(addr) for addr in self.bp_list.keys()]}")
+        print(f"Snaptshots: {len(self.rr.layers)}")
 
     @parse_int
     def do_disassemble(self: QlQdb, address: Optional[int] = 0, *args) -> None:
@@ -332,7 +343,7 @@ class QlQdb(cmd.Cmd):
         """
 
         try:
-            context_asm(self.ql, _parse_int(address), self.ql.pointersize)
+            context_asm(self.ql, address)
         except:
             print(f"{color.RED}[!] something went wrong ...{color.END}")
 
@@ -361,8 +372,10 @@ class QlQdb(cmd.Cmd):
         if input(f"{color.RED}[!] Are you sure about saying good bye ~ ? [Y/n]{color.END} ").strip() == "Y":
             self.do_quit()
 
+
     do_r = do_run
-    do_s = do_step
+    do_s = do_step_in
+    do_n = do_step_over
     do_q = do_quit
     do_x = do_examine
     do_p = do_backward
